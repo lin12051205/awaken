@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Board Room 需要存取你的行事曆，以便在會議中自動建立和管理事件。</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Board Room 需要存取你的行事曆，以便在會議中自動建立和管理事件。</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Board Room 需要存取你的提醒事項，以便將會議中的待辦事項同步到原生提醒 App。</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Board Room 需要存取你的提醒事項，以便將會議中的待辦事項同步到原生提醒 App。</string>
+</dict>
+</plist>
