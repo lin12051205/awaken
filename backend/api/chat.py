@@ -20,7 +20,7 @@ class ChatRequest(BaseModel):
     system_prompt: str
     messages: list[ChatMessage]
     max_tokens: int = 4096
-    model: str | None = None
+    # model is intentionally NOT accepted from client — always use Haiku server-side
 
 
 class ChatResponse(BaseModel):
@@ -44,7 +44,7 @@ async def chat(
         system=req.system_prompt,
         messages=[m.model_dump() for m in req.messages],
         max_tokens=req.max_tokens,
-        model=req.model,
+        model=settings.haiku_model,  # always Haiku, never overridable by client
     )
 
     return ChatResponse(
