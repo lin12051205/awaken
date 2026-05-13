@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     trial_days: int = 3
     trial_daily_limit: int = 12
     paid_daily_limit: int = 24
-    haiku_model: str = "claude-3-5-haiku-20241022"
+    haiku_model: str = "claude-haiku-4-5-20251001"
 
     class Config:
         env_file = ".env"
