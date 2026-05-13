@@ -1,5 +1,6 @@
 """Chat proxy — keeps Anthropic API key server-side."""
-from fastapi import APIRouter, Depends
+import traceback
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from core.database import get_db
@@ -34,21 +35,27 @@ async def chat(
     req: ChatRequest,
     user_id: str = Depends(verify_access_token),
 ):
-    db = get_db()
-    user = check_and_increment(db, user_id)
+    try:
+        db = get_db()
+        user = check_and_increment(db, user_id)
 
-    plan = user.get("plan", "trial")
-    limit = settings.paid_daily_limit if plan == "paid" else settings.trial_daily_limit
+        plan = user.get("plan", "trial")
+        limit = settings.paid_daily_limit if plan == "paid" else settings.trial_daily_limit
 
-    reply = await call_claude(
-        system=req.system_prompt,
-        messages=[m.model_dump() for m in req.messages],
-        max_tokens=req.max_tokens,
-        model=settings.haiku_model,  # always Haiku, never overridable by client
-    )
+        reply = await call_claude(
+            system=req.system_prompt,
+            messages=[m.model_dump() for m in req.messages],
+            max_tokens=req.max_tokens,
+            model=settings.haiku_model,  # always Haiku, never overridable by client
+        )
 
-    return ChatResponse(
-        reply=reply,
-        daily_count=user["daily_count"],
-        daily_limit=limit,
-    )
+        return ChatResponse(
+            reply=reply,
+            daily_count=user["daily_count"],
+            daily_limit=limit,
+        )
+    except HTTPException:
+        raise  # let FastAPI handle 401/402/404 etc. normally
+    except Exception as e:
+        tb = traceback.format_exc()
+        raise HTTPException(500, f"{type(e).__name__}: {e}\n\nTraceback:\n{tb}")

@@ -8,12 +8,13 @@ _db = None
 
 
 def _ensure_initialized():
-    """Initialize Firebase Admin SDK exactly once per process (safe for Vercel warm reuse)."""
-    if firebase_admin._apps:
-        return  # Already initialized in this worker process
-    cred_dict = json.loads(settings.firebase_credentials_json)
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)
+    """Initialize Firebase Admin SDK exactly once per process."""
+    try:
+        firebase_admin.get_app()  # raises ValueError if not initialized
+    except ValueError:
+        cred_dict = json.loads(settings.firebase_credentials_json)
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
 
 
 def get_db():
