@@ -25,13 +25,6 @@ struct ContentView: View {
                     Text("待辦事項")
                 }
                 .tag(2)
-
-            SettingsView()
-                .tabItem {
-                    Image(systemName: "gearshape.fill")
-                    Text("設定")
-                }
-                .tag(3)
         }
         .tint(AppTheme.gold)
     }

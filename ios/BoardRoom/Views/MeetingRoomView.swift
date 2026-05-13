@@ -4,17 +4,67 @@ struct MeetingRoomView: View {
     @StateObject private var viewModel = MeetingViewModel()
     @EnvironmentObject private var settings: SettingsManager
     @EnvironmentObject private var auth: AuthService
+    @StateObject private var persistence = PersistenceController.shared
     @FocusState private var isInputFocused: Bool
+
+    @State private var showHistory = false
+    @State private var showSettings = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .leading) {
                 AppTheme.background.ignoresSafeArea()
 
-                if viewModel.isInMeeting {
-                    meetingInterface
-                } else {
-                    lobbyView
+                // Main content
+                Group {
+                    if viewModel.isInMeeting {
+                        meetingInterface
+                    } else {
+                        lobbyView
+                    }
+                }
+                .blur(radius: showHistory ? 3 : 0)
+                .allowsHitTesting(!showHistory)
+
+                // History drawer overlay
+                if showHistory {
+                    Color.black.opacity(0.55)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .onTapGesture { closeHistory() }
+
+                    HistoryDrawerView(
+                        meetings: persistence.meetings,
+                        onClose: closeHistory,
+                        onSelect: { meeting in
+                            viewModel.continueMeeting(meeting)
+                            closeHistory()
+                        }
+                    )
+                    .frame(width: UIScreen.main.bounds.width * 0.78)
+                    .transition(.move(edge: .leading))
+                }
+            }
+            .navigationTitle("會議室")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { openHistory() } label: {
+                        Image(systemName: "line.3.horizontal")
+                            .foregroundColor(AppTheme.gold)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(AppTheme.gold)
+                    }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { isInputFocused = false }
+                        .foregroundColor(AppTheme.gold)
                 }
             }
             .alert("提示", isPresented: .init(
@@ -25,17 +75,9 @@ struct MeetingRoomView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
-            .navigationTitle("會議室")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("完成") {
-                        isInputFocused = false
-                    }
-                    .foregroundColor(AppTheme.gold)
-                }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+                    .environmentObject(settings)
             }
             .sheet(isPresented: $viewModel.showPaywall) {
                 PaywallView(reason: viewModel.paywallReason, trialSummary: viewModel.trialSummary)
@@ -44,19 +86,34 @@ struct MeetingRoomView: View {
         }
     }
 
+    private func openHistory() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            showHistory = true
+        }
+    }
+
+    private func closeHistory() {
+        withAnimation(.easeOut(duration: 0.22)) {
+            showHistory = false
+        }
+    }
+
     // MARK: - Lobby
 
     private var lobbyView: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        VStack(spacing: 28) {
+            Spacer(minLength: 12)
 
-            Image(systemName: "building.columns.fill")
-                .font(.system(size: 64))
-                .foregroundColor(AppTheme.gold)
+            // Temple low-poly logo
+            Image("meeting_temple")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 180, height: 180)
 
             VStack(spacing: 8) {
                 Text("BOARD ROOM")
-                    .font(.system(size: 28, weight: .bold, design: .serif))
+                    .font(.system(size: 32, weight: .bold, design: .serif))
+                    .tracking(3)
                     .foregroundColor(AppTheme.textPrimary)
 
                 Text("你的 AI 個人董事會")
@@ -64,135 +121,62 @@ struct MeetingRoomView: View {
                     .foregroundColor(AppTheme.textSecondary)
             }
 
-            // Director cards — large image horizontal layout
-            HStack(spacing: 12) {
+            // Director avatars — circular, like the reference design
+            HStack(spacing: 28) {
                 ForEach(settings.enabledDirectors) { director in
-                    directorCard(director)
+                    directorAvatar(director)
                 }
             }
-            .padding(.horizontal, 16)
-
-            Button(action: {
-                viewModel.startMeeting()
-            }) {
-                HStack {
-                    Image(systemName: "play.fill")
-                    Text("召開會議")
-                        .font(.headline)
-                }
-                .foregroundColor(AppTheme.background)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(AppTheme.gold)
-                .cornerRadius(12)
-            }
-            .padding(.horizontal, 40)
+            .padding(.top, 4)
 
             Spacer()
 
-            // Recent meetings
-            if !PersistenceController.shared.meetings.isEmpty {
-                recentMeetings
+            // Faceted gold button
+            Button(action: { viewModel.startMeeting() }) {
+                FacetedGoldButton(label: "召開會議")
             }
+            .padding(.horizontal, 28)
+
+            Spacer(minLength: 20)
         }
     }
 
     @ViewBuilder
-    private func directorCard(_ director: Director) -> some View {
-        VStack(spacing: 0) {
-            // Avatar image or emoji fallback
-            Group {
+    private func directorAvatar(_ director: Director) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(AppTheme.secondaryBackground)
+                    .frame(width: 78, height: 78)
+                    .overlay(
+                        Circle()
+                            .stroke(AppTheme.directorColors[director.colorIndex].opacity(0.55), lineWidth: 1)
+                    )
+
                 if let name = director.imageName, let uiImage = UIImage(named: name) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
+                        .frame(width: 74, height: 74)
+                        .clipShape(Circle())
                 } else {
                     Text(director.emoji)
-                        .font(.system(size: 36))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(AppTheme.secondaryBackground)
+                        .font(.system(size: 34))
                 }
             }
-            .frame(height: 110)
-            .clipped()
 
-            // Name + title
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Text(director.name)
                     .font(.caption.bold())
                     .foregroundColor(AppTheme.textPrimary)
                     .lineLimit(1)
 
                 Text(director.title)
-                    .font(.system(size: 9))
+                    .font(.system(size: 10))
                     .foregroundColor(AppTheme.textMuted)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .background(AppTheme.cardBackground)
-        }
-        .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(AppTheme.directorColors[director.colorIndex].opacity(0.6), lineWidth: 1)
-        )
-    }
-
-    private var recentMeetings: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("最近會議")
-                .font(.caption)
-                .foregroundColor(AppTheme.textMuted)
-                .padding(.horizontal)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(PersistenceController.shared.meetings.prefix(5)) { meeting in
-                        VStack(spacing: 0) {
-                            NavigationLink {
-                                MeetingDetailView(meeting: meeting, onContinue: {
-                                    viewModel.continueMeeting(meeting)
-                                })
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(meeting.title)
-                                        .font(.caption)
-                                        .foregroundColor(AppTheme.textPrimary)
-                                        .lineLimit(1)
-
-                                    Text("\(meeting.messages.count) 則訊息")
-                                        .font(.caption2)
-                                        .foregroundColor(AppTheme.textMuted)
-                                }
-                                .padding(10)
-                                .frame(width: 140, alignment: .leading)
-                            }
-
-                            Button {
-                                viewModel.continueMeeting(meeting)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "arrow.counterclockwise")
-                                    Text("繼續")
-                                }
-                                .font(.caption2)
-                                .foregroundColor(AppTheme.gold)
-                                .frame(width: 140)
-                                .padding(.vertical, 6)
-                            }
-                        }
-                        .background(AppTheme.cardBackground)
-                        .cornerRadius(8)
-                    }
-                }
-                .padding(.horizontal)
+                    .lineLimit(1)
             }
         }
-        .padding(.bottom)
     }
 
     // MARK: - Meeting Interface
@@ -221,31 +205,26 @@ struct MeetingRoomView: View {
                     }
                     .padding()
                 }
-                .onTapGesture {
-                    isInputFocused = false
-                }
+                .onTapGesture { isInputFocused = false }
                 .onChange(of: viewModel.currentMeeting?.messages.count) { _, _ in
                     if let lastId = viewModel.currentMeeting?.messages.last?.id {
-                        withAnimation {
-                            proxy.scrollTo(lastId, anchor: .bottom)
-                        }
+                        withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
                     }
                 }
             }
 
-            // Event preview (multi-event)
+            // Event preview
             if !viewModel.pendingEvents.isEmpty {
                 eventPreviewBanner(events: viewModel.pendingEvents)
             }
 
-            // Memory detection banner
+            // Memory banner
             if let pending = viewModel.pendingMemory {
                 memoryBanner(content: pending.content, category: pending.category)
             }
 
             // Director selector + Input
             VStack(spacing: 8) {
-                // Director quick-select
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(settings.enabledDirectors) { director in
@@ -285,7 +264,6 @@ struct MeetingRoomView: View {
                     .padding(.horizontal)
                 }
 
-                // Input bar
                 HStack(spacing: 8) {
                     TextField("輸入你的想法...", text: $viewModel.inputText, axis: .vertical)
                         .textFieldStyle(.plain)
@@ -308,7 +286,6 @@ struct MeetingRoomView: View {
             .padding(.vertical, 8)
             .background(AppTheme.cardBackground)
 
-            // End meeting button
             Button(action: viewModel.endMeeting) {
                 Text("結束會議")
                     .font(.caption)
@@ -338,7 +315,6 @@ struct MeetingRoomView: View {
 
             HStack {
                 Spacer()
-
                 Button("全部加入") { viewModel.confirmAllEvents() }
                     .font(.caption)
                     .foregroundColor(AppTheme.background)
@@ -346,7 +322,6 @@ struct MeetingRoomView: View {
                     .padding(.vertical, 6)
                     .background(AppTheme.gold)
                     .cornerRadius(8)
-
                 Button("忽略") { viewModel.dismissAllEvents() }
                     .font(.caption)
                     .foregroundColor(AppTheme.textMuted)
@@ -367,9 +342,7 @@ struct MeetingRoomView: View {
                     .font(.caption)
                     .foregroundColor(AppTheme.textPrimary)
             }
-
             Spacer()
-
             Button("記住") { viewModel.confirmMemorySave() }
                 .font(.caption)
                 .foregroundColor(AppTheme.background)
@@ -377,7 +350,6 @@ struct MeetingRoomView: View {
                 .padding(.vertical, 6)
                 .background(AppTheme.gold)
                 .cornerRadius(8)
-
             Button("忽略") { viewModel.dismissMemory() }
                 .font(.caption)
                 .foregroundColor(AppTheme.textMuted)
@@ -388,7 +360,212 @@ struct MeetingRoomView: View {
     }
 }
 
-// MARK: - Message Bubble
+// MARK: - Faceted Low-Poly Gold Button
+
+private struct FacetedGoldButton: View {
+    let label: String
+
+    var body: some View {
+        ZStack {
+            FacetedButtonShape()
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: Color(hex: "7A5C1E"), location: 0.0),
+                            .init(color: Color(hex: "D4AF37"), location: 0.18),
+                            .init(color: Color(hex: "F4E29A"), location: 0.48),
+                            .init(color: Color(hex: "D4AF37"), location: 0.78),
+                            .init(color: Color(hex: "8B6B26"), location: 1.0)
+                        ]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    FacetedButtonShape()
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color(hex: "F4E29A"), Color(hex: "8B6B26")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                )
+                .overlay(facetLines)
+                .shadow(color: AppTheme.gold.opacity(0.45), radius: 12, y: 0)
+
+            HStack(spacing: 10) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 14, weight: .bold))
+                Text(label)
+                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .tracking(3)
+            }
+            .foregroundColor(Color(hex: "1B1407"))
+        }
+        .frame(height: 68)
+    }
+
+    /// Subtle diagonal facet lines to suggest the low-poly look
+    private var facetLines: some View {
+        GeometryReader { geo in
+            Path { p in
+                let h = geo.size.height
+                let w = geo.size.width
+                // top-edge facets
+                p.move(to: CGPoint(x: 40, y: 0))
+                p.addLine(to: CGPoint(x: 60, y: h * 0.45))
+                p.move(to: CGPoint(x: w - 40, y: 0))
+                p.addLine(to: CGPoint(x: w - 60, y: h * 0.45))
+                // bottom-edge facets
+                p.move(to: CGPoint(x: 40, y: h))
+                p.addLine(to: CGPoint(x: 60, y: h * 0.55))
+                p.move(to: CGPoint(x: w - 40, y: h))
+                p.addLine(to: CGPoint(x: w - 60, y: h * 0.55))
+            }
+            .stroke(Color.black.opacity(0.18), lineWidth: 0.6)
+        }
+    }
+}
+
+private struct FacetedButtonShape: Shape {
+    var cut: CGFloat = 28
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: cut, y: 0))
+        p.addLine(to: CGPoint(x: rect.maxX - cut, y: 0))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        p.addLine(to: CGPoint(x: rect.maxX - cut, y: rect.maxY))
+        p.addLine(to: CGPoint(x: cut, y: rect.maxY))
+        p.addLine(to: CGPoint(x: 0, y: rect.midY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+// MARK: - History Drawer
+
+private struct HistoryDrawerView: View {
+    let meetings: [Meeting]
+    let onClose: () -> Void
+    let onSelect: (Meeting) -> Void
+
+    @State private var detailMeeting: Meeting?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("會議紀錄")
+                    .font(.title3.bold())
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                Button { onClose() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(AppTheme.textMuted)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 12)
+
+            Divider().background(AppTheme.textMuted.opacity(0.3))
+
+            if meetings.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 36))
+                        .foregroundColor(AppTheme.textMuted)
+                    Text("尚無會議紀錄")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textMuted)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(meetings) { meeting in
+                            historyRow(meeting)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                }
+            }
+        }
+        .frame(maxHeight: .infinity)
+        .background(AppTheme.cardBackground)
+        .sheet(item: $detailMeeting) { meeting in
+            NavigationStack {
+                MeetingDetailView(meeting: meeting, onContinue: {
+                    onSelect(meeting)
+                })
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func historyRow(_ meeting: Meeting) -> some View {
+        let title = displayTitle(for: meeting)
+
+        Button {
+            detailMeeting = meeting
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                HStack(spacing: 8) {
+                    Text(dateText(meeting.createdAt))
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textMuted)
+                    Text("·")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textMuted)
+                    Text("\(meeting.messages.count) 則訊息")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textMuted)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(AppTheme.secondaryBackground)
+            .cornerRadius(10)
+        }
+    }
+
+    /// Show the summary's first line as title if available; otherwise meeting.title.
+    private func displayTitle(for meeting: Meeting) -> String {
+        if let summary = meeting.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !summary.isEmpty {
+            // Strip markdown headers/bullets, take first non-empty line
+            let line = summary
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first(where: { !$0.isEmpty && !$0.allSatisfy({ "-=#".contains($0) }) })
+                ?? summary
+            // Strip leading markdown chars
+            return line
+                .replacingOccurrences(of: "#", with: "")
+                .replacingOccurrences(of: "**", with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: " -•*"))
+        }
+        return meeting.title
+    }
+
+    private func dateText(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MM/dd HH:mm"
+        return f.string(from: date)
+    }
+}
+
+// MARK: - Message Bubble (unchanged)
 
 struct MessageBubbleView: View {
     let message: MeetingMessage
@@ -404,7 +581,6 @@ struct MessageBubbleView: View {
         }
     }
 
-    /// Maps director name to asset image name, then falls back to emoji
     @ViewBuilder
     private func directorAvatarView(name: String?, emoji: String?) -> some View {
         let imageName = Self.imageNameForDirector(name)
