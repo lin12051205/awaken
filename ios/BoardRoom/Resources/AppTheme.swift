@@ -14,9 +14,10 @@ enum AppTheme {
     static let success = Color(hex: "2ECC71")
 
     static let directorColors: [Color] = [
-        Color(hex: "C9A84C"), // Gold - Thinking Advisor
+        Color(hex: "C9A84C"), // Gold - CEO
         Color(hex: "4A90D9"), // Blue - Financial Rationalist
         Color(hex: "E74C3C"), // Red - Devil's Advocate
+        Color(hex: "8C8F94"), // Cool steel grey - COO (operations)
     ]
 }
 

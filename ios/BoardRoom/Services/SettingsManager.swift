@@ -21,7 +21,7 @@ class SettingsManager: ObservableObject {
 
     private let directorsKey = "savedDirectors"
     private let schemaVersionKey = "directorsSchemaVersion"
-    private let currentSchemaVersion = 3 // Bumped for imageName addition
+    private let currentSchemaVersion = 4 // Bumped for COO addition
 
     init() {
         loadDirectors()

@@ -121,11 +121,14 @@ struct MeetingRoomView: View {
                     .foregroundColor(AppTheme.textSecondary)
             }
 
-            // Director avatars — circular, like the reference design
-            HStack(spacing: 28) {
-                ForEach(settings.enabledDirectors) { director in
-                    directorAvatar(director)
+            // Director avatars — circular, scrollable when many directors enabled
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 18) {
+                    ForEach(settings.enabledDirectors) { director in
+                        directorAvatar(director)
+                    }
                 }
+                .padding(.horizontal, 20)
             }
             .padding(.top, 4)
 
@@ -147,7 +150,7 @@ struct MeetingRoomView: View {
             ZStack {
                 Circle()
                     .fill(AppTheme.secondaryBackground)
-                    .frame(width: 78, height: 78)
+                    .frame(width: 70, height: 70)
                     .overlay(
                         Circle()
                             .stroke(AppTheme.directorColors[director.colorIndex].opacity(0.55), lineWidth: 1)
@@ -157,7 +160,7 @@ struct MeetingRoomView: View {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 74, height: 74)
+                        .frame(width: 66, height: 66)
                         .clipShape(Circle())
                 } else {
                     Text(director.emoji)
@@ -601,6 +604,7 @@ struct MessageBubbleView: View {
         case "CEO": return "ceo_avatar"
         case "財政顧問": return "finance_avatar"
         case "魔鬼代言人": return "devil_avatar"
+        case "COO": return "coo_avatar"
         default: return nil
         }
     }
