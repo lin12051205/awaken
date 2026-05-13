@@ -24,11 +24,17 @@ class MeetingViewModel: ObservableObject {
         let endDate: Date?
     }
 
-    private let apiService = ClaudeAPIService.shared
+    private let apiService = BackendAPIService.shared
     private let nlpService = NLPParsingService.shared
     private let persistence = PersistenceController.shared
     private let settings = SettingsManager.shared
     private let memoryManager = MemoryManager.shared
+    private let auth = AuthService.shared
+
+    // Paywall state
+    @Published var showPaywall: Bool = false
+    @Published var paywallReason: PaywallView.PaywallReason = .dailyLimitReached
+    @Published var trialSummary: String? = nil
 
     // MARK: - Meeting Lifecycle
 
@@ -93,10 +99,8 @@ class MeetingViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        let apiKey = settings.apiKey
-
         // Step 1: Analyze message (todo + calendar + routing + memory in ONE API call using Haiku)
-        let analysis = await analyzeMessage(userMessage, apiKey: apiKey)
+        let analysis = await analyzeMessage(userMessage)
 
         // Step 2: Create todos if detected
         if !analysis.todos.isEmpty {
@@ -139,8 +143,7 @@ class MeetingViewModel: ObservableObject {
                 let response = try await apiService.sendMessage(
                     userMessage: userMessage,
                     conversationHistory: history,
-                    systemPrompt: fullSystemPrompt,
-                    apiKey: apiKey
+                    systemPrompt: fullSystemPrompt
                 )
 
                 let directorMsg = MeetingMessage(
@@ -149,6 +152,18 @@ class MeetingViewModel: ObservableObject {
                     director: director
                 )
                 currentMeeting?.messages.append(directorMsg)
+            } catch let error as BackendAPIService.BackendError {
+                switch error {
+                case .trialExpired:
+                    paywallReason = .trialExpired
+                    await fetchTrialSummary()
+                    showPaywall = true
+                case .dailyLimitReached:
+                    paywallReason = .dailyLimitReached
+                    showPaywall = true
+                default:
+                    errorMessage = error.localizedDescription
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -187,7 +202,7 @@ class MeetingViewModel: ObservableObject {
         let memory: (content: String, category: String)? // merged memory detection
     }
 
-    private func analyzeMessage(_ message: String, apiKey: String) async -> AnalysisResult {
+    private func analyzeMessage(_ message: String) async -> AnalysisResult {
         let now = Date()
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
@@ -255,7 +270,6 @@ class MeetingViewModel: ObservableObject {
             let response = try await apiService.sendAnalysisMessage(
                 userMessage: message,
                 systemPrompt: systemPrompt,
-                apiKey: apiKey,
                 maxTokens: 512
             )
 
@@ -354,7 +368,7 @@ class MeetingViewModel: ObservableObject {
 
     // MARK: - Memory Detection
 
-    private func detectMemory(from message: String, apiKey: String) async {
+    private func detectMemory(from message: String) async {
         let systemPrompt = """
         分析使用者的訊息，判斷是否透露了值得長期記住的習慣、偏好或固定行程。
 
@@ -379,7 +393,6 @@ class MeetingViewModel: ObservableObject {
             let response = try await apiService.sendAnalysisMessage(
                 userMessage: message,
                 systemPrompt: systemPrompt,
-                apiKey: apiKey,
                 maxTokens: 128
             )
 
@@ -470,11 +483,19 @@ class MeetingViewModel: ObservableObject {
     /// Only includes that director's own responses as "assistant" — other directors' messages are
     /// included as user context to avoid the AI mimicking another director's identity.
     /// Limited to the last 10 user messages (+ associated responses) to control token costs.
-    private func buildConversationHistory(for director: Director? = nil) -> [ClaudeAPIService.APIMessage] {
+    private func buildConversationHistory(for director: Director? = nil) -> [BackendAPIService.ChatMessage] {
         guard let meeting = currentMeeting else { return [] }
 
+        // The last message in currentMeeting is the user message currently being processed.
+        // BackendAPIService.sendMessage appends it separately, so we must exclude it here —
+        // otherwise the Anthropic API rejects the request (consecutive user messages).
+        var allMessages = meeting.messages
+        if allMessages.last?.role == .user {
+            allMessages.removeLast()
+        }
+
         // Find the last 10 user message indices to limit context window
-        let userIndices = meeting.messages.enumerated().compactMap { (i, msg) in
+        let userIndices = allMessages.enumerated().compactMap { (i, msg) in
             msg.role == .user ? i : nil
         }
         let cutoffIndex: Int
@@ -484,18 +505,18 @@ class MeetingViewModel: ObservableObject {
             cutoffIndex = 0
         }
 
-        var result: [ClaudeAPIService.APIMessage] = []
+        var result: [BackendAPIService.ChatMessage] = []
 
-        for (i, msg) in meeting.messages.enumerated() {
+        for (i, msg) in allMessages.enumerated() {
             guard i >= cutoffIndex else { continue }
             switch msg.role {
             case .user:
-                result.append(ClaudeAPIService.APIMessage(role: "user", content: msg.content))
+                result.append(BackendAPIService.ChatMessage(role: "user", content: msg.content))
             case .director:
                 if let director = director, msg.directorName == director.name {
-                    result.append(ClaudeAPIService.APIMessage(role: "assistant", content: msg.content))
+                    result.append(BackendAPIService.ChatMessage(role: "assistant", content: msg.content))
                 } else if let name = msg.directorName {
-                    result.append(ClaudeAPIService.APIMessage(role: "user", content: "[其他董事 \(name) 的觀點]：\(msg.content)"))
+                    result.append(BackendAPIService.ChatMessage(role: "user", content: "[其他董事 \(name) 的觀點]：\(msg.content)"))
                 }
             case .system:
                 break
@@ -507,9 +528,31 @@ class MeetingViewModel: ObservableObject {
 
     // MARK: - Summary Generation
 
+    private func fetchTrialSummary() async {
+        guard let token = BackendAPIService.shared.accessToken,
+              let url = URL(string: "https://awaken-gamma.vercel.app/user/trial-summary") else { return }
+
+        let messages = currentMeeting?.messages.compactMap { msg -> [String: String]? in
+            switch msg.role {
+            case .user: return ["role": "user", "content": msg.content]
+            case .director: return ["role": "assistant", "content": msg.content]
+            case .system: return nil
+            }
+        } ?? []
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["conversations": messages])
+
+        if let (data, _) = try? await URLSession.shared.data(for: req),
+           let json = try? JSONDecoder().decode([String: String].self, from: data) {
+            trialSummary = json["summary"]
+        }
+    }
+
     private func generateSummary(for meeting: Meeting) async -> String? {
-        let apiKey = settings.apiKey
-        guard !apiKey.isEmpty else { return nil }
 
         let transcript = meeting.messages.map { msg -> String in
             switch msg.role {
@@ -533,7 +576,6 @@ class MeetingViewModel: ObservableObject {
             return try await apiService.sendAnalysisMessage(
                 userMessage: summaryPrompt,
                 systemPrompt: "你是一位會議記錄秘書，擅長從對話中提取重點和行動項目。回答請用繁體中文，使用 Markdown 格式。",
-                apiKey: apiKey,
                 maxTokens: 1024
             )
         } catch {

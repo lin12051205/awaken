@@ -3,6 +3,7 @@ import SwiftUI
 struct MeetingRoomView: View {
     @StateObject private var viewModel = MeetingViewModel()
     @EnvironmentObject private var settings: SettingsManager
+    @EnvironmentObject private var auth: AuthService
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -16,6 +17,14 @@ struct MeetingRoomView: View {
                     lobbyView
                 }
             }
+            .alert("提示", isPresented: .init(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            )) {
+                Button("確定", role: .cancel) {}
+            } message: {
+                Text(viewModel.errorMessage ?? "")
+            }
             .navigationTitle("會議室")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -27,6 +36,10 @@ struct MeetingRoomView: View {
                     }
                     .foregroundColor(AppTheme.gold)
                 }
+            }
+            .sheet(isPresented: $viewModel.showPaywall) {
+                PaywallView(reason: viewModel.paywallReason, trialSummary: viewModel.trialSummary)
+                    .environmentObject(auth)
             }
         }
     }
@@ -60,11 +73,7 @@ struct MeetingRoomView: View {
             .padding(.horizontal, 16)
 
             Button(action: {
-                if settings.hasAPIKey {
-                    viewModel.startMeeting()
-                } else {
-                    viewModel.errorMessage = "請先在設定中輸入 API Key"
-                }
+                viewModel.startMeeting()
             }) {
                 HStack {
                     Image(systemName: "play.fill")
@@ -85,14 +94,6 @@ struct MeetingRoomView: View {
             if !PersistenceController.shared.meetings.isEmpty {
                 recentMeetings
             }
-        }
-        .alert("提示", isPresented: .init(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) {
-            Button("確定", role: .cancel) {}
-        } message: {
-            Text(viewModel.errorMessage ?? "")
         }
     }
 

@@ -3,8 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsManager
     @StateObject private var memoryManager = MemoryManager.shared
-    @State private var showAPIKeyInput = false
-    @State private var tempAPIKey = ""
     @State private var showResetAlert = false
 
     var body: some View {
@@ -13,35 +11,6 @@ struct SettingsView: View {
                 AppTheme.background.ignoresSafeArea()
 
                 List {
-                    // API Key Section
-                    Section {
-                        HStack {
-                            Image(systemName: "key.fill")
-                                .foregroundColor(AppTheme.gold)
-
-                            if settings.hasAPIKey {
-                                Text("API Key 已設定")
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                                Button("修改") { prepareAPIKeyEdit() }
-                                    .foregroundColor(AppTheme.gold)
-                            } else {
-                                Text("尚未設定 API Key")
-                                    .foregroundColor(AppTheme.destructive)
-                                Spacer()
-                                Button("設定") { prepareAPIKeyEdit() }
-                                    .foregroundColor(AppTheme.gold)
-                            }
-                        }
-                    } header: {
-                        Text("Anthropic API")
-                            .foregroundColor(AppTheme.textMuted)
-                    } footer: {
-                        Text("使用 Anthropic Claude API。你的 API Key 僅儲存在本機裝置。")
-                            .foregroundColor(AppTheme.textMuted)
-                    }
-                    .listRowBackground(AppTheme.cardBackground)
-
                     // Role Type Section
                     Section {
                         Picker("角色類型", selection: $settings.roleTypeRaw) {
@@ -135,7 +104,7 @@ struct SettingsView: View {
                             Text("AI 模型")
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
-                            Text("Claude Sonnet 4")
+                            Text("Claude Haiku")
                                 .foregroundColor(AppTheme.textMuted)
                         }
                     } header: {
@@ -161,18 +130,6 @@ struct SettingsView: View {
             }
             .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.inline)
-            .alert("設定 API Key", isPresented: $showAPIKeyInput) {
-                TextField("sk-ant-...", text: $tempAPIKey)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Button("儲存") {
-                    settings.apiKey = tempAPIKey
-                    tempAPIKey = ""
-                }
-                Button("取消", role: .cancel) { tempAPIKey = "" }
-            } message: {
-                Text("請輸入你的 Anthropic API Key")
-            }
             .alert("重置董事會", isPresented: $showResetAlert) {
                 Button("重置", role: .destructive) { settings.resetDirectors() }
                 Button("取消", role: .cancel) {}
@@ -205,8 +162,4 @@ struct SettingsView: View {
         .padding(.vertical, 4)
     }
 
-    private func prepareAPIKeyEdit() {
-        tempAPIKey = settings.apiKey
-        showAPIKeyInput = true
-    }
 }

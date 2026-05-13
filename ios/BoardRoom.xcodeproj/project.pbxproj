@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6753F2C62FB1754500DFD1AA /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 6753F2C52FB1754500DFD1AA /* GoogleService-Info.plist */; };
 		A10001 /* BoardRoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001 /* BoardRoomApp.swift */; };
 		A10002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002 /* ContentView.swift */; };
 		A10003 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003 /* AppTheme.swift */; };
@@ -29,9 +30,17 @@
 		A10020 /* Memory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10021 /* Memory.swift */; };
 		A10021 /* MemoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022 /* MemoryManager.swift */; };
 		A10022 /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10023 /* MarkdownTextView.swift */; };
+		A10030 /* BackendAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10030 /* BackendAPIService.swift */; };
+		A10031 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10031 /* AuthService.swift */; };
+		A10032 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10032 /* LoginView.swift */; };
+		A10033 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10033 /* PaywallView.swift */; };
+		A10034 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = F10030 /* FirebaseAuth */; };
+		A10035 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10031 /* FirebaseCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		6753F2C52FB1754500DFD1AA /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		6753F2C72FB176A200DFD1AA /* BoardRoom.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BoardRoom.entitlements; sourceTree = "<group>"; };
 		B10000 /* BoardRoom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoardRoom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10001 /* BoardRoomApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardRoomApp.swift; sourceTree = "<group>"; };
 		B10002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -56,6 +65,10 @@
 		B10021 /* Memory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memory.swift; sourceTree = "<group>"; };
 		B10022 /* MemoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryManager.swift; sourceTree = "<group>"; };
 		B10023 /* MarkdownTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTextView.swift; sourceTree = "<group>"; };
+		B10030 /* BackendAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendAPIService.swift; sourceTree = "<group>"; };
+		B10031 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		B10032 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		B10033 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +76,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10034 /* FirebaseAuth in Frameworks */,
+				A10035 /* FirebaseCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,6 +95,8 @@
 		D10001 /* BoardRoom */ = {
 			isa = PBXGroup;
 			children = (
+				6753F2C72FB176A200DFD1AA /* BoardRoom.entitlements */,
+				6753F2C52FB1754500DFD1AA /* GoogleService-Info.plist */,
 				B10001 /* BoardRoomApp.swift */,
 				B10002 /* ContentView.swift */,
 				B10020 /* Info.plist */,
@@ -114,6 +131,8 @@
 				B10016 /* TodoListView.swift */,
 				B10017 /* SettingsView.swift */,
 				B10023 /* MarkdownTextView.swift */,
+				B10032 /* LoginView.swift */,
+				B10033 /* PaywallView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -134,6 +153,8 @@
 				B10009 /* NLPParsingService.swift */,
 				B10010 /* SettingsManager.swift */,
 				B10022 /* MemoryManager.swift */,
+				B10030 /* BackendAPIService.swift */,
+				B10031 /* AuthService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -179,6 +200,10 @@
 			dependencies = (
 			);
 			name = BoardRoom;
+			packageProductDependencies = (
+				F10030 /* FirebaseAuth */,
+				F10031 /* FirebaseCore */,
+			);
 			productName = BoardRoom;
 			productReference = B10000 /* BoardRoom.app */;
 			productType = "com.apple.product-type.application";
@@ -208,6 +233,9 @@
 				Base,
 			);
 			mainGroup = D10000;
+			packageReferences = (
+				6753F2C42FB173E700DFD1AA /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			productRefGroup = D10009 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -223,6 +251,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10019 /* Assets.xcassets in Resources */,
+				6753F2C62FB1754500DFD1AA /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -254,6 +283,10 @@
 				A10020 /* Memory.swift in Sources */,
 				A10021 /* MemoryManager.swift in Sources */,
 				A10022 /* MarkdownTextView.swift in Sources */,
+				A10030 /* BackendAPIService.swift in Sources */,
+				A10031 /* AuthService.swift in Sources */,
+				A10032 /* LoginView.swift in Sources */,
+				A10033 /* PaywallView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -367,6 +400,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = BoardRoom/BoardRoom.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = A43MPM84QR;
@@ -396,6 +430,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = BoardRoom/BoardRoom.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = A43MPM84QR;
@@ -442,6 +477,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6753F2C42FB173E700DFD1AA /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.13.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F10030 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6753F2C42FB173E700DFD1AA /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		F10031 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6753F2C42FB173E700DFD1AA /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E10000 /* Project object */;
 }
