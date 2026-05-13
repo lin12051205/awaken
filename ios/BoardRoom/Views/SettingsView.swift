@@ -46,6 +46,31 @@ struct SettingsView: View {
                     }
                     .listRowBackground(AppTheme.cardBackground)
 
+                    // Integrations Section
+                    Section {
+                        Toggle(isOn: $settings.syncTodosToReminders) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "checklist")
+                                    .foregroundColor(AppTheme.gold)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("同步到提醒事項")
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Text("AI 偵測到待辦時自動加入蘋果提醒事項")
+                                        .font(.caption2)
+                                        .foregroundColor(AppTheme.textMuted)
+                                }
+                            }
+                        }
+                        .tint(AppTheme.gold)
+                    } header: {
+                        Text("整合")
+                            .foregroundColor(AppTheme.textMuted)
+                    } footer: {
+                        Text("行事曆事件需要在對話中按「全部加入」才會建立，不受此開關影響。")
+                            .foregroundColor(AppTheme.textMuted)
+                    }
+                    .listRowBackground(AppTheme.cardBackground)
+
                     // Memory Section
                     Section {
                         if memoryManager.memories.isEmpty {

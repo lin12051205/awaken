@@ -6,6 +6,7 @@ class SettingsManager: ObservableObject {
 
     @AppStorage("apiKey") var apiKey: String = ""
     @AppStorage("roleType") var roleTypeRaw: String = Director.RoleType.position.rawValue
+    @AppStorage("syncTodosToReminders") var syncTodosToReminders: Bool = true
 
     @Published var directors: [Director] = [] {
         didSet { saveDirectors() }
