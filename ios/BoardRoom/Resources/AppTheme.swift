@@ -18,6 +18,7 @@ enum AppTheme {
         Color(hex: "4A90D9"), // Blue - Financial Rationalist
         Color(hex: "E74C3C"), // Red - Devil's Advocate
         Color(hex: "8C8F94"), // Cool steel grey - COO (operations)
+        Color(hex: "8B2C3F"), // Wine red - Persona Director (brand / charisma)
     ]
 }
 

@@ -605,6 +605,7 @@ struct MessageBubbleView: View {
         case "財政顧問": return "finance_avatar"
         case "魔鬼代言人": return "devil_avatar"
         case "COO": return "coo_avatar"
+        case "Persona": return "persona_avatar"
         default: return nil
         }
     }
