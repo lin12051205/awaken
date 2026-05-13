@@ -99,14 +99,6 @@ struct SettingsView: View {
                             Text("1.1.0")
                                 .foregroundColor(AppTheme.textMuted)
                         }
-
-                        HStack {
-                            Text("AI 模型")
-                                .foregroundColor(AppTheme.textPrimary)
-                            Spacer()
-                            Text("Claude Haiku")
-                                .foregroundColor(AppTheme.textMuted)
-                        }
                     } header: {
                         Text("關於")
                             .foregroundColor(AppTheme.textMuted)

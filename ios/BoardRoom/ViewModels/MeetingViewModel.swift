@@ -102,11 +102,31 @@ class MeetingViewModel: ObservableObject {
         // Step 1: Analyze message (todo + calendar + routing + memory in ONE API call using Haiku)
         let analysis = await analyzeMessage(userMessage)
 
-        // Step 2: Create todos if detected
+        // Step 2: Create todos if detected — save locally AND sync to Apple Reminders
         if !analysis.todos.isEmpty {
+            let calService = CalendarService.shared
+            // Ensure Reminders permission (no-op if already granted)
+            if calService.reminderAuthStatus != .fullAccess {
+                _ = await calService.requestReminderAccess()
+            }
+
             for todo in analysis.todos {
                 let item = TodoItem(title: todo.title, priority: todo.priority, meetingId: currentMeeting?.id)
                 persistence.saveTodo(item)
+
+                // Map our priority → EKReminder priority (1=high, 5=medium, 9=low)
+                let ekPriority: Int
+                switch todo.priority {
+                case .high:   ekPriority = 1
+                case .medium: ekPriority = 5
+                case .low:    ekPriority = 9
+                }
+                _ = calService.createReminder(
+                    title: todo.title,
+                    dueDate: nil,
+                    priority: ekPriority,
+                    notes: "由 AWAKEN 董事會建立"
+                )
             }
             let todoNames = analysis.todos.map { "• \($0.title)" }.joined(separator: "\n")
             let sysMsg = MeetingMessage(role: .system, content: "✅ 已加入 \(analysis.todos.count) 個待辦事項：\n\(todoNames)")
