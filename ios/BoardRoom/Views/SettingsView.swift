@@ -11,24 +11,6 @@ struct SettingsView: View {
                 AppTheme.background.ignoresSafeArea()
 
                 List {
-                    // Role Type Section
-                    Section {
-                        Picker("角色類型", selection: $settings.roleTypeRaw) {
-                            ForEach(Director.RoleType.allCases, id: \.rawValue) { type in
-                                Text(type.rawValue).tag(type.rawValue)
-                            }
-                        }
-                        .foregroundColor(AppTheme.textPrimary)
-                        .pickerStyle(.segmented)
-                    } header: {
-                        Text("角色設定")
-                            .foregroundColor(AppTheme.textMuted)
-                    } footer: {
-                        Text("職位型：以職能定義角色。人物型：以真實人物風格定義角色。")
-                            .foregroundColor(AppTheme.textMuted)
-                    }
-                    .listRowBackground(AppTheme.cardBackground)
-
                     // Directors Section
                     Section {
                         ForEach(settings.directors.indices, id: \.self) { index in
