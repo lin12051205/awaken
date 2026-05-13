@@ -4,11 +4,6 @@ from fastapi import HTTPException
 from core.config import settings
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-HEADERS = {
-    "x-api-key": settings.anthropic_api_key,
-    "anthropic-version": "2023-06-01",
-    "content-type": "application/json",
-}
 
 
 async def call_claude(
@@ -21,6 +16,15 @@ async def call_claude(
     Call the Anthropic Messages API and return the text response.
     Uses Haiku by default (cost-efficient for all production calls).
     """
+    # Strip whitespace/newlines — Vercel env vars sometimes include trailing \n
+    api_key = settings.anthropic_api_key.strip()
+
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+
     payload = {
         "model": model or settings.haiku_model,
         "max_tokens": max_tokens,
@@ -28,7 +32,7 @@ async def call_claude(
         "messages": messages,
     }
     async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(ANTHROPIC_URL, json=payload, headers=HEADERS)
+        resp = await client.post(ANTHROPIC_URL, json=payload, headers=headers)
         if resp.status_code != 200:
             raise HTTPException(502, f"Anthropic API error {resp.status_code}: {resp.text}")
         data = resp.json()
