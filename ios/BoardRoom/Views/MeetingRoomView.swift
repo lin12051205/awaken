@@ -649,11 +649,13 @@ struct MessageBubbleView: View {
 
                 MarkdownTextView(content: message.content)
                     .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(12)
                     .background(AppTheme.cardBackground)
                     .cornerRadius(16, corners: [.topRight, .bottomLeft, .bottomRight])
             }
-            .frame(maxWidth: 300, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, 24)
 
             Spacer()
         }

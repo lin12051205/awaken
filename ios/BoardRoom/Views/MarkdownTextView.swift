@@ -23,7 +23,8 @@ struct MarkdownTextView: View {
         case heading(level: Int, text: String)
         case codeBlock(language: String?, code: String)
         case bulletList(items: [String])
-        case numberedList(items: [String])
+        case numberedList(items: [(number: Int, text: String)])
+        case table(headers: [String], rows: [[String]])
         case paragraph(text: String)
     }
 
@@ -94,13 +95,18 @@ struct MarkdownTextView: View {
                 continue
             }
 
-            // Numbered list
-            if let _ = trimmed.range(of: #"^\d+[\.\)]\s"#, options: .regularExpression) {
-                var items: [String] = []
+            // Numbered list — keep original numbers so "1. / 2. / 3." stays intact
+            // even when paragraphs interleave (each numbered line becomes its own
+            // tiny list, but the original digit is preserved).
+            if trimmed.range(of: #"^\d+[\.\)]\s"#, options: .regularExpression) != nil {
+                var items: [(Int, String)] = []
                 while i < lines.count {
                     let t = lines[i].trimmingCharacters(in: .whitespaces)
                     if let range = t.range(of: #"^\d+[\.\)]\s"#, options: .regularExpression) {
-                        items.append(String(t[range.upperBound...]).trimmingCharacters(in: .whitespaces))
+                        let prefix = String(t[range])
+                        let num = Int(prefix.trimmingCharacters(in: CharacterSet(charactersIn: " .)"))) ?? (items.count + 1)
+                        let body = String(t[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+                        items.append((num, body))
                         i += 1
                     } else {
                         break
@@ -108,6 +114,28 @@ struct MarkdownTextView: View {
                 }
                 blocks.append(.numberedList(items: items))
                 continue
+            }
+
+            // Table (GitHub-flavored: | a | b |  with --- separator on next line)
+            if trimmed.hasPrefix("|") && trimmed.hasSuffix("|") && i + 1 < lines.count {
+                let separator = lines[i + 1].trimmingCharacters(in: .whitespaces)
+                let isSep = separator.hasPrefix("|") &&
+                            separator.replacingOccurrences(of: "|", with: "")
+                                     .replacingOccurrences(of: " ", with: "")
+                                     .allSatisfy { "-:".contains($0) }
+                if isSep {
+                    let headers = parseTableRow(trimmed)
+                    var rows: [[String]] = []
+                    i += 2 // skip header + separator
+                    while i < lines.count {
+                        let t = lines[i].trimmingCharacters(in: .whitespaces)
+                        guard t.hasPrefix("|") && t.hasSuffix("|") else { break }
+                        rows.append(parseTableRow(t))
+                        i += 1
+                    }
+                    blocks.append(.table(headers: headers, rows: rows))
+                    continue
+                }
             }
 
             // Empty line - skip
@@ -122,6 +150,7 @@ struct MarkdownTextView: View {
                 let t = lines[i].trimmingCharacters(in: .whitespaces)
                 if t.isEmpty || t.hasPrefix("#") || t.hasPrefix("```") ||
                    t.hasPrefix("- ") || t.hasPrefix("* ") || t.hasPrefix("• ") ||
+                   (t.hasPrefix("|") && t.hasSuffix("|")) ||
                    t.range(of: #"^\d+[\.\)]\s"#, options: .regularExpression) != nil {
                     break
                 }
@@ -134,6 +163,16 @@ struct MarkdownTextView: View {
         }
 
         return blocks
+    }
+
+    /// Split "| a | b | c |" into ["a", "b", "c"]
+    private func parseTableRow(_ line: String) -> [String] {
+        var s = line.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("|") { s.removeFirst() }
+        if s.hasSuffix("|") { s.removeLast() }
+        return s.components(separatedBy: "|").map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }
     }
 
     // MARK: - Renderers
@@ -182,16 +221,46 @@ struct MarkdownTextView: View {
 
         case .numberedList(let items):
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(alignment: .top, spacing: 6) {
-                        Text("\(index + 1).")
+                        Text("\(item.number).")
                             .foregroundColor(AppTheme.gold)
                             .font(.body)
                             .frame(width: 22, alignment: .trailing)
-                        renderInlineMarkdown(item)
+                        renderInlineMarkdown(item.text)
                             .font(.body)
                             .foregroundColor(textColor)
                     }
+                }
+            }
+
+        case .table(let headers, let rows):
+            // Mobile-friendly table: render each row as a small card with
+            // "header: value" pairs, so wide tables collapse vertically.
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(headers.enumerated()), id: \.offset) { idx, header in
+                            if idx < row.count {
+                                HStack(alignment: .top, spacing: 6) {
+                                    if !header.isEmpty {
+                                        Text(header)
+                                            .font(.caption.bold())
+                                            .foregroundColor(AppTheme.gold)
+                                            .frame(minWidth: 56, alignment: .leading)
+                                    }
+                                    renderInlineMarkdown(row[idx])
+                                        .font(.caption)
+                                        .foregroundColor(textColor)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.secondaryBackground.opacity(0.5))
+                    .cornerRadius(6)
                 }
             }
 

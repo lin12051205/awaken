@@ -21,7 +21,7 @@ class SettingsManager: ObservableObject {
 
     private let directorsKey = "savedDirectors"
     private let schemaVersionKey = "directorsSchemaVersion"
-    private let currentSchemaVersion = 5 // Bumped for Persona Director addition
+    private let currentSchemaVersion = 6 // Bumped for tightened CEO prompt + no-tables rule
 
     init() {
         loadDirectors()
