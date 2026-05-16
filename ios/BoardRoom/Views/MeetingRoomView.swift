@@ -104,10 +104,10 @@ struct MeetingRoomView: View {
         VStack(spacing: 28) {
             Spacer(minLength: 12)
 
-            // Temple low-poly logo
-            Image("meeting_temple")
-                .resizable()
-                .scaledToFit()
+            // Apple SF Symbol logo
+            Image(systemName: "building.columns.fill")
+                .font(.system(size: 96))
+                .foregroundColor(AppTheme.gold)
                 .frame(width: 180, height: 180)
 
             VStack(spacing: 8) {
@@ -489,7 +489,7 @@ private struct HistoryDrawerView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        ForEach(meetings) { meeting in
+                        ForEach(sortedMeetings) { meeting in
                             historyRow(meeting)
                         }
                     }
@@ -509,22 +509,32 @@ private struct HistoryDrawerView: View {
         }
     }
 
+    /// Meetings sorted by most recent activity first (last message timestamp,
+    /// falling back to createdAt for empty meetings).
+    private var sortedMeetings: [Meeting] {
+        meetings.sorted { lhs, rhs in
+            lastActivity(of: lhs) > lastActivity(of: rhs)
+        }
+    }
+
+    private func lastActivity(of meeting: Meeting) -> Date {
+        meeting.messages.last?.timestamp ?? meeting.endedAt ?? meeting.createdAt
+    }
+
     @ViewBuilder
     private func historyRow(_ meeting: Meeting) -> some View {
-        let title = displayTitle(for: meeting)
-
         Button {
             detailMeeting = meeting
         } label: {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title)
+                Text(meeting.title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(AppTheme.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 HStack(spacing: 8) {
-                    Text(dateText(meeting.createdAt))
+                    Text(dateText(lastActivity(of: meeting)))
                         .font(.caption2)
                         .foregroundColor(AppTheme.textMuted)
                     Text("·")
@@ -540,25 +550,6 @@ private struct HistoryDrawerView: View {
             .background(AppTheme.secondaryBackground)
             .cornerRadius(10)
         }
-    }
-
-    /// Show the summary's first line as title if available; otherwise meeting.title.
-    private func displayTitle(for meeting: Meeting) -> String {
-        if let summary = meeting.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !summary.isEmpty {
-            // Strip markdown headers/bullets, take first non-empty line
-            let line = summary
-                .components(separatedBy: .newlines)
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .first(where: { !$0.isEmpty && !$0.allSatisfy({ "-=#".contains($0) }) })
-                ?? summary
-            // Strip leading markdown chars
-            return line
-                .replacingOccurrences(of: "#", with: "")
-                .replacingOccurrences(of: "**", with: "")
-                .trimmingCharacters(in: CharacterSet(charactersIn: " -•*"))
-        }
-        return meeting.title
     }
 
     private func dateText(_ date: Date) -> String {

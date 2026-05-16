@@ -68,7 +68,15 @@ class MeetingViewModel: ObservableObject {
         meeting.endedAt = Date()
 
         Task {
-            if let summary = await generateSummary(for: meeting) {
+            // Generate both: a short title (for the sidebar) AND a full summary
+            async let titleTask = generateShortTitle(for: meeting)
+            async let summaryTask = generateSummary(for: meeting)
+            let (newTitle, newSummary) = await (titleTask, summaryTask)
+
+            if let title = newTitle, !title.isEmpty {
+                meeting.title = title
+            }
+            if let summary = newSummary {
                 meeting.summary = summary
             }
             persistence.saveMeeting(meeting)
@@ -200,6 +208,10 @@ class MeetingViewModel: ObservableObject {
         if let meeting = currentMeeting {
             persistence.saveMeeting(meeting)
         }
+
+        // Refresh sidebar title at conversation milestones (1st, 3rd, 6th, then every 5 user turns)
+        // so unended meetings still get a meaningful one-line title in the drawer.
+        await maybeRefreshTitle()
 
         // Step 5: Handle memory from analysis (no separate API call needed)
         if let mem = analysis.memory {
@@ -580,6 +592,79 @@ class MeetingViewModel: ObservableObject {
            let json = try? JSONDecoder().decode([String: String].self, from: data) {
             trialSummary = json["summary"]
         }
+    }
+
+    /// Throttled mid-conversation title refresh.
+    /// Triggers on user-turn counts 1, 3, 6, 11, 16, 21... so we don't spam the API,
+    /// but the sidebar still gets a fresh meaningful title as the conversation grows.
+    private func maybeRefreshTitle() async {
+        guard let meeting = currentMeeting else { return }
+        let userTurns = meeting.messages.filter { $0.role == .user }.count
+        let triggers: Set<Int> = [1, 3, 6, 11, 16, 21, 26, 31]
+        let shouldRefresh = triggers.contains(userTurns) || (userTurns > 31 && userTurns % 10 == 1)
+        guard shouldRefresh else { return }
+
+        guard let title = await generateShortTitle(for: meeting), !title.isEmpty else { return }
+        currentMeeting?.title = title
+        if let updated = currentMeeting {
+            persistence.saveMeeting(updated)
+        }
+    }
+
+    /// Asks Haiku for a concise one-line title (~15 zh chars) summarising the
+    /// conversation topic. Used by the sidebar so users can recognise meetings
+    /// at a glance without reading the full summary.
+    private func generateShortTitle(for meeting: Meeting) async -> String? {
+        // Use the most recent slice — enough context for the topic, cheap to call.
+        let slice = meeting.messages.suffix(12)
+        let transcript = slice.compactMap { msg -> String? in
+            switch msg.role {
+            case .user:     return "用戶：\(msg.content)"
+            case .director: return "\(msg.directorName ?? "AI")：\(msg.content)"
+            case .system:   return nil
+            }
+        }.joined(separator: "\n")
+
+        guard !transcript.isEmpty else { return nil }
+
+        let systemPrompt = """
+        你是精準的標題生成器。讀完一段董事會對話後，產生一句最多 15 個繁體中文字的標題，\
+        濃縮這段對話的核心主題或結論。
+
+        嚴格規則：
+        - 只回傳標題本身，不要任何前後綴、引號、標點裝飾
+        - 不要包含「會議」「討論」「對話」這類冗詞
+        - 不要用句號結尾
+        - 必須是名詞短語或一句陳述
+        - 上限 15 個中文字（含逗號）
+        """
+
+        do {
+            let raw = try await apiService.sendAnalysisMessage(
+                userMessage: transcript,
+                systemPrompt: systemPrompt,
+                maxTokens: 60
+            )
+            return sanitizeTitle(raw)
+        } catch {
+            return nil
+        }
+    }
+
+    /// Clean up the LLM output: strip quotes, markdown, trailing punctuation, truncate.
+    private func sanitizeTitle(_ raw: String) -> String {
+        var t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Take only the first line if model went off-script
+        if let firstLine = t.components(separatedBy: .newlines).first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
+            t = firstLine.trimmingCharacters(in: .whitespaces)
+        }
+        // Strip wrapping quotes and markdown
+        t = t.trimmingCharacters(in: CharacterSet(charactersIn: "「」\"'`*#-—— 。．."))
+        // Hard length cap (~20 chars to be safe across width metrics)
+        if t.count > 22 {
+            t = String(t.prefix(20)) + "…"
+        }
+        return t
     }
 
     private func generateSummary(for meeting: Meeting) async -> String? {
