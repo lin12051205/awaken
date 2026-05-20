@@ -231,37 +231,7 @@ struct MeetingRoomView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(settings.enabledDirectors) { director in
-                            Button {
-                                viewModel.selectedDirector = viewModel.selectedDirector?.id == director.id ? nil : director
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(director.emoji)
-                                    Text(director.name)
-                                        .font(.caption)
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(
-                                    viewModel.selectedDirector?.id == director.id
-                                    ? AppTheme.directorColors[director.colorIndex].opacity(0.3)
-                                    : AppTheme.secondaryBackground
-                                )
-                                .foregroundColor(
-                                    viewModel.selectedDirector?.id == director.id
-                                    ? AppTheme.directorColors[director.colorIndex]
-                                    : AppTheme.textSecondary
-                                )
-                                .cornerRadius(16)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(
-                                            viewModel.selectedDirector?.id == director.id
-                                            ? AppTheme.directorColors[director.colorIndex]
-                                            : Color.clear,
-                                            lineWidth: 1
-                                        )
-                                )
-                            }
+                            directorChip(director)
                         }
                     }
                     .padding(.horizontal)
@@ -296,6 +266,46 @@ struct MeetingRoomView: View {
                     .padding(.vertical, 8)
             }
             .background(AppTheme.cardBackground)
+        }
+    }
+
+    // MARK: - Director quick-select chip (avatar + name)
+
+    @ViewBuilder
+    private func directorChip(_ director: Director) -> some View {
+        let isSelected = viewModel.selectedDirector?.id == director.id
+        let accent = AppTheme.directorColors[director.colorIndex]
+
+        Button {
+            viewModel.selectedDirector = isSelected ? nil : director
+        } label: {
+            HStack(spacing: 6) {
+                Group {
+                    if let imageName = director.imageName,
+                       let uiImage = UIImage(named: imageName) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        // Fallback: solid coloured circle so we never show an emoji
+                        Circle().fill(accent.opacity(0.4))
+                    }
+                }
+                .frame(width: 20, height: 20)
+                .clipShape(Circle())
+
+                Text(director.name)
+                    .font(.caption)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isSelected ? accent.opacity(0.22) : AppTheme.secondaryBackground)
+            .foregroundColor(isSelected ? accent : AppTheme.textSecondary)
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? accent : Color.clear, lineWidth: 1)
+            )
         }
     }
 

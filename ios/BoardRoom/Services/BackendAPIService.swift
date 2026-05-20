@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Replaces ClaudeAPIService — all requests go through our Vercel backend.
 /// The Anthropic API key lives on the server; the iOS app never sees it.
@@ -84,7 +85,16 @@ actor BackendAPIService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        req.timeoutInterval = 60
+        // Bumped from 60s — give Anthropic + Vercel headroom, especially when
+        // the user navigates away mid-request and iOS slows our network.
+        req.timeoutInterval = 120
+
+        // Ask iOS for extra background execution time so an in-flight director
+        // response doesn't get killed when the user switches tab / locks screen.
+        let bgTaskID = await Self.beginBackgroundTask()
+        defer {
+            Task { await Self.endBackgroundTask(bgTaskID) }
+        }
 
         let (data, response) = try await URLSession.shared.data(for: req)
 
@@ -108,6 +118,23 @@ actor BackendAPIService {
             let body = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw BackendError.httpError(statusCode: http.statusCode, body: body)
         }
+    }
+
+    // MARK: - Background task helpers (let in-flight requests survive a tab switch)
+
+    @MainActor
+    private static func beginBackgroundTask() -> UIBackgroundTaskIdentifier {
+        UIApplication.shared.beginBackgroundTask(withName: "awaken-chat-api") {
+            // expirationHandler — iOS will call this if we run out of time.
+            // We can't do anything here (URLSession is already firing); end-task
+            // is handled in the caller's defer.
+        }
+    }
+
+    @MainActor
+    private static func endBackgroundTask(_ id: UIBackgroundTaskIdentifier) {
+        guard id != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(id)
     }
 
     // MARK: - Errors
