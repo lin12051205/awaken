@@ -106,6 +106,11 @@ actor BackendAPIService {
         case 200:
             return try JSONDecoder().decode(T.self, from: data)
         case 401:
+            // Token rejected — clear it locally and tell AuthService to flip
+            // isSignedIn so the app returns to the login screen instead of
+            // looping on the same expired credential.
+            setAccessToken(nil)
+            await MainActor.run { AuthService.shared.handleTokenInvalidated() }
             throw BackendError.notAuthenticated
         case 402:
             let body = String(data: data, encoding: .utf8) ?? ""

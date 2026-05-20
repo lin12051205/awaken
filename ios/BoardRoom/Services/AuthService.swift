@@ -88,6 +88,15 @@ class AuthService: NSObject, ObservableObject {
         isTrialExpired = false
     }
 
+    /// Called by BackendAPIService when the backend returns 401 — flips the
+    /// published auth flag so the root view immediately swaps to LoginView.
+    /// We don't call Firebase signOut here; the user just needs a fresh JWT
+    /// from our backend (Apple sign-in will get them a new one quickly).
+    func handleTokenInvalidated() {
+        isSignedIn = false
+        lastError = "登入逾期，請重新登入"
+    }
+
     // MARK: - Refresh user status from backend
 
     func refreshStatus() async {

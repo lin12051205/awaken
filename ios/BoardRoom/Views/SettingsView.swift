@@ -2,8 +2,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsManager
+    @EnvironmentObject private var auth: AuthService
     @StateObject private var memoryManager = MemoryManager.shared
     @State private var showResetAlert = false
+    @State private var showSignOutAlert = false
 
     var body: some View {
         NavigationStack {
@@ -97,6 +99,24 @@ struct SettingsView: View {
                     }
                     .listRowBackground(AppTheme.cardBackground)
 
+                    // Account Section
+                    Section {
+                        Button(role: .destructive) {
+                            showSignOutAlert = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "arrow.right.square")
+                                Text("登出")
+                                Spacer()
+                            }
+                            .foregroundColor(AppTheme.destructive)
+                        }
+                    } header: {
+                        Text("帳號")
+                            .foregroundColor(AppTheme.textMuted)
+                    }
+                    .listRowBackground(AppTheme.cardBackground)
+
                     // About Section
                     Section {
                         HStack {
@@ -134,6 +154,12 @@ struct SettingsView: View {
                 Button("取消", role: .cancel) {}
             } message: {
                 Text("確定要重置所有董事會成員為預設值嗎？")
+            }
+            .alert("登出", isPresented: $showSignOutAlert) {
+                Button("登出", role: .destructive) { auth.signOut() }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("登出後需要重新以 Apple 帳號登入才能繼續使用。")
             }
         }
     }

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     firebase_credentials_json: str
     # Our own JWT for API sessions
     jwt_secret: str
-    jwt_expire_hours: int = 168  # 7 days
+    jwt_expire_hours: int = 720  # 30 days — long enough that re-auth is rare
 
     # Business logic
     trial_days: int = 3
