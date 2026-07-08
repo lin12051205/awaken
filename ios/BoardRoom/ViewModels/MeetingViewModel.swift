@@ -106,9 +106,10 @@ class MeetingViewModel: ObservableObject {
     private func processMessage(_ userMessage: String) async {
         isLoading = true
         errorMessage = nil
-
-        // Step 1: Analyze message (todo + calendar + routing + memory in ONE API call using Haiku)
-        let analysis = await analyzeMessage(userMessage)
+        // Guarantee isLoading is released on every exit path (throws, early
+        // returns, cancellations) — otherwise a single stuck request silently
+        // blocks every subsequent send via the `guard !isLoading` check.
+        defer { isLoading = false }
 
         // Step 2: Create todos if detected — save locally, optionally sync to Apple Reminders
         if !analysis.todos.isEmpty {
@@ -201,8 +202,6 @@ class MeetingViewModel: ObservableObject {
                 errorMessage = error.localizedDescription
             }
         }
-
-        isLoading = false
 
         // Auto-save
         if let meeting = currentMeeting {
