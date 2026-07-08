@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsManager
@@ -203,48 +204,90 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Subscription Card (Apple Music-style gradient card with plan tab)
+// MARK: - Subscription Card (single-view, no confusing tab)
 
 private struct SubscriptionCard: View {
-    enum Tab { case free, paid }
-
     let currentPlan: String        // "trial" / "paid"
     let onUpgrade: () -> Void
 
-    @State private var selectedTab: Tab
-
-    init(currentPlan: String, onUpgrade: @escaping () -> Void) {
-        self.currentPlan = currentPlan
-        self.onUpgrade = onUpgrade
-        _selectedTab = State(initialValue: currentPlan == "paid" ? .paid : .free)
-    }
+    @State private var isShowingManage = false
+    private var isPaid: Bool { currentPlan == "paid" }
 
     var body: some View {
-        VStack(spacing: 14) {
-            // Plan switch tab
-            Picker("方案", selection: $selectedTab) {
-                Text("一般").tag(Tab.free)
-                Text("付費").tag(Tab.paid)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "F4E29A"), AppTheme.gold],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 46, height: 46)
+                    Image(systemName: isPaid ? "crown.fill" : "person.fill")
+                        .font(.title3)
+                        .foregroundColor(AppTheme.background)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(isPaid ? "付費會員" : "一般會員")
+                        .font(.title3.bold())
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text(isPaid ? "感謝你的支持" : "免費試用中")
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.textMuted)
+                }
+                Spacer()
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 4)
 
-            // Card content
-            Group {
-                if selectedTab == .free {
-                    freeContent
-                } else {
-                    paidContent
+            VStack(alignment: .leading, spacing: 8) {
+                benefitRow(icon: "checkmark.circle.fill", text: "更高每日對話上限", enabled: isPaid)
+                benefitRow(icon: "checkmark.circle.fill", text: "全部董事人格可用", enabled: isPaid)
+                benefitRow(icon: "checkmark.circle.fill", text: "長期記憶脈絡",   enabled: isPaid)
+            }
+
+            if isPaid {
+                Button {
+                    isShowingManage = true
+                } label: {
+                    Text("管理訂閱")
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(AppTheme.gold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            Capsule().stroke(AppTheme.gold.opacity(0.7), lineWidth: 1)
+                        )
+                }
+                .manageSubscriptionsSheet(isPresented: $isShowingManage)
+            } else {
+                Button {
+                    onUpgrade()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                        Text("升級付費會員")
+                            .font(.body.weight(.semibold))
+                    }
+                    .foregroundColor(AppTheme.background)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "F4E29A"), AppTheme.gold],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .clipShape(Capsule())
                 }
             }
-            .frame(maxWidth: .infinity)
         }
         .padding(20)
         .background(
             LinearGradient(
-                colors: selectedTab == .paid
-                    ? [Color(hex: "3C2A0F"), Color(hex: "1A1207")]
-                    : [Color(hex: "5A3F14"), Color(hex: "2A1D08")],
+                colors: [Color(hex: "3F2C10"), Color(hex: "1B1207")],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -258,133 +301,15 @@ private struct SubscriptionCard: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: - Free tab content
-
-    private var freeContent: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "person.fill")
-                    .font(.title3)
-                    .foregroundColor(AppTheme.gold)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("一般會員")
-                        .font(.title3.bold())
-                        .foregroundColor(AppTheme.textPrimary)
-                    Text(currentPlan == "trial" ? "免費使用中" : "目前的方案")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textMuted)
-                }
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                benefitRow(icon: "sparkles",   text: "解鎖更高每日對話上限")
-                benefitRow(icon: "person.3.fill", text: "更多董事人格與能力")
-                benefitRow(icon: "brain.head.profile", text: "更長的記憶脈絡")
-            }
-
-            Button {
-                onUpgrade()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                    Text("升級付費會員")
-                        .font(.body.weight(.semibold))
-                }
-                .foregroundColor(AppTheme.background)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "F4E29A"), AppTheme.gold],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .clipShape(Capsule())
-            }
-        }
-    }
-
-    // MARK: - Paid tab content
-
-    private var paidContent: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "crown.fill")
-                    .font(.title3)
-                    .foregroundColor(AppTheme.gold)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("付費會員")
-                        .font(.title3.bold())
-                        .foregroundColor(AppTheme.textPrimary)
-                    Text(currentPlan == "paid" ? "感謝你的支持" : "尚未升級")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textMuted)
-                }
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                benefitRow(icon: "checkmark.circle.fill", text: "更高每日對話上限")
-                benefitRow(icon: "checkmark.circle.fill", text: "全部董事人格可用")
-                benefitRow(icon: "checkmark.circle.fill", text: "長期記憶脈絡")
-            }
-
-            if currentPlan == "paid" {
-                Button {
-                    if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                        UIApplication.shared.open(url)
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("管理 / 取消訂閱")
-                            .font(.body.weight(.medium))
-                        Image(systemName: "arrow.up.right.square")
-                            .font(.caption)
-                    }
-                    .foregroundColor(AppTheme.gold)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .stroke(AppTheme.gold.opacity(0.7), lineWidth: 1)
-                    )
-                }
-            } else {
-                Button {
-                    onUpgrade()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                        Text("升級付費會員")
-                            .font(.body.weight(.semibold))
-                    }
-                    .foregroundColor(AppTheme.background)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(hex: "F4E29A"), AppTheme.gold],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .clipShape(Capsule())
-                }
-            }
-        }
-    }
-
-    private func benefitRow(icon: String, text: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
+    private func benefitRow(icon: String, text: String, enabled: Bool) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: enabled ? icon : "circle")
                 .font(.caption)
-                .foregroundColor(AppTheme.gold.opacity(0.85))
+                .foregroundColor(enabled ? AppTheme.gold : AppTheme.textMuted.opacity(0.6))
                 .frame(width: 16)
             Text(text)
-                .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(.subheadline)
+                .foregroundColor(enabled ? AppTheme.textPrimary : AppTheme.textSecondary)
             Spacer()
         }
     }

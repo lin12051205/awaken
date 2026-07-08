@@ -82,38 +82,39 @@ struct MeetingDetailView: View {
 
     @ViewBuilder
     private var summaryCard: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: "sparkles")
-                .font(.caption)
+                .font(.body)
                 .foregroundColor(AppTheme.gold)
-                .padding(.top, 2)
+                .padding(.top, 3)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("對話重點")
-                    .font(.caption2.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundColor(AppTheme.gold)
 
                 if isSummarizing {
-                    HStack(spacing: 6) {
-                        ProgressView().scaleEffect(0.7)
+                    HStack(spacing: 8) {
+                        ProgressView().scaleEffect(0.85)
                         Text("整理對話重點中…")
-                            .font(.caption)
+                            .font(.body)
                             .foregroundColor(AppTheme.textMuted)
                     }
                 } else if let summary = freshSummary, !summary.isEmpty {
                     Text(summary)
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.body)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .lineSpacing(4)
                         .textSelection(.enabled)
                 } else {
                     Text("本次對話尚無足夠內容可摘要。")
-                        .font(.caption)
+                        .font(.body)
                         .foregroundColor(AppTheme.textMuted)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .padding(14)
         .background(AppTheme.secondaryBackground.opacity(0.55))
         .cornerRadius(12)
     }
