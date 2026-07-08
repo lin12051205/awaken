@@ -111,6 +111,9 @@ class MeetingViewModel: ObservableObject {
         // blocks every subsequent send via the `guard !isLoading` check.
         defer { isLoading = false }
 
+        // Step 1: Analyze message (todo + calendar + routing + memory in ONE API call using Haiku)
+        let analysis = await analyzeMessage(userMessage)
+
         // Step 2: Create todos if detected — save locally, optionally sync to Apple Reminders
         if !analysis.todos.isEmpty {
             let shouldSyncReminders = settings.syncTodosToReminders
