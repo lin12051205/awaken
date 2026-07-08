@@ -6,6 +6,8 @@ struct SettingsView: View {
     @StateObject private var memoryManager = MemoryManager.shared
     @State private var showResetAlert = false
     @State private var showSignOutAlert = false
+    @State private var showUpgradeSheet = false
+    @State private var showCancelAlert = false
 
     var body: some View {
         NavigationStack {
@@ -13,6 +15,67 @@ struct SettingsView: View {
                 AppTheme.background.ignoresSafeArea()
 
                 List {
+                    // Membership Section
+                    Section {
+                        HStack(spacing: 12) {
+                            Image(systemName: auth.plan == "paid" ? "crown.fill" : "person.fill")
+                                .foregroundColor(AppTheme.gold)
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(auth.plan == "paid" ? "付費會員" : "一般會員")
+                                    .foregroundColor(AppTheme.textPrimary)
+                                    .font(.body.weight(.medium))
+                                Text(auth.plan == "paid"
+                                     ? "感謝你的支持"
+                                     : "免費試用中")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.textMuted)
+                            }
+                            Spacer()
+                        }
+
+                        if auth.plan == "paid" {
+                            Button {
+                                showCancelAlert = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "xmark.circle")
+                                    Text("管理 / 取消訂閱")
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.caption)
+                                        .foregroundColor(AppTheme.textMuted)
+                                }
+                                .foregroundColor(AppTheme.textPrimary)
+                            }
+                        } else {
+                            Button {
+                                showUpgradeSheet = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "sparkles")
+                                    Text("升級付費會員")
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(AppTheme.textMuted)
+                                }
+                                .foregroundColor(AppTheme.gold)
+                                .font(.body.weight(.semibold))
+                            }
+                        }
+                    } header: {
+                        Text("會員")
+                            .foregroundColor(AppTheme.textMuted)
+                    } footer: {
+                        Text(auth.plan == "paid"
+                             ? "訂閱管理會開啟 Apple 訂閱設定頁。"
+                             : "升級可解鎖更高每日對話上限與更多董事人格。")
+                            .foregroundColor(AppTheme.textMuted)
+                    }
+                    .listRowBackground(AppTheme.cardBackground)
+
                     // Directors Section
                     Section {
                         ForEach(settings.directors.indices, id: \.self) { index in
@@ -77,6 +140,14 @@ struct SettingsView: View {
                                             .font(.caption2)
                                             .foregroundColor(AppTheme.textMuted)
                                     }
+                                    Spacer()
+                                    Button {
+                                        memoryManager.deleteMemory(memory)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .foregroundColor(AppTheme.destructive.opacity(0.85))
+                                    }
+                                    .buttonStyle(.borderless)
                                 }
                                 .padding(.vertical, 2)
                             }
@@ -160,6 +231,20 @@ struct SettingsView: View {
                 Button("取消", role: .cancel) {}
             } message: {
                 Text("登出後需要重新以 Apple 帳號登入才能繼續使用。")
+            }
+            .alert("管理訂閱", isPresented: $showCancelAlert) {
+                Button("開啟 Apple 訂閱管理") {
+                    if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("iOS 訂閱由 Apple 統一管理。點擊後會開啟 App Store 的訂閱設定頁。")
+            }
+            .sheet(isPresented: $showUpgradeSheet) {
+                PaywallView(reason: .dailyLimitReached, trialSummary: nil)
+                    .environmentObject(auth)
             }
         }
     }

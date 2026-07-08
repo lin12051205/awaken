@@ -537,7 +537,7 @@ private struct HistoryDrawerView: View {
             detailMeeting = meeting
         } label: {
             VStack(alignment: .leading, spacing: 6) {
-                Text(meeting.title)
+                Text(rowTitle(for: meeting))
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(AppTheme.textPrimary)
                     .lineLimit(2)
@@ -560,6 +560,44 @@ private struct HistoryDrawerView: View {
             .background(AppTheme.secondaryBackground)
             .cornerRadius(10)
         }
+    }
+
+    /// Smart title: prefer AI-generated title, fall back to summary first line,
+    /// fall back to first user message excerpt, fall back to date.
+    /// Skips the default '董事會議 yyyy/MM/dd HH:mm' auto-name so old meetings
+    /// don't just show a timestamp.
+    private func rowTitle(for meeting: Meeting) -> String {
+        // 1. Real auto-generated title (not the initial date placeholder)
+        let isDefaultDateTitle = meeting.title.hasPrefix("董事會議 ") &&
+            meeting.title.range(of: #"\d{4}/\d{2}/\d{2}"#, options: .regularExpression) != nil
+        if !meeting.title.isEmpty && !isDefaultDateTitle {
+            return meeting.title
+        }
+        // 2. Summary first meaningful line
+        if let summary = meeting.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !summary.isEmpty {
+            let line = summary
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first(where: { !$0.isEmpty && !$0.allSatisfy({ "-=#".contains($0) }) })
+                ?? summary
+            let cleaned = line
+                .replacingOccurrences(of: "#", with: "")
+                .replacingOccurrences(of: "**", with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: " -•*"))
+            if !cleaned.isEmpty { return String(cleaned.prefix(30)) }
+        }
+        // 3. First user message
+        if let firstUser = meeting.messages.first(where: { $0.role == .user }) {
+            let content = firstUser.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !content.isEmpty {
+                return String(content.prefix(30)) + (content.count > 30 ? "…" : "")
+            }
+        }
+        // 4. Last resort — date
+        let f = DateFormatter()
+        f.dateFormat = "yyyy/MM/dd HH:mm 的對話"
+        return f.string(from: meeting.createdAt)
     }
 
     private func dateText(_ date: Date) -> String {

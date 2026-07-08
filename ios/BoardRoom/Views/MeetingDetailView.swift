@@ -13,7 +13,7 @@ struct MeetingDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // Header
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(meeting.title)
+                        Text(smartTitle)
                             .font(.title3.bold())
                             .foregroundColor(AppTheme.textPrimary)
 
@@ -82,5 +82,34 @@ struct MeetingDetailView: View {
         }
         .navigationTitle("會議記錄")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Same smart-title logic as the sidebar drawer so both views agree.
+    private var smartTitle: String {
+        let isDefaultDateTitle = meeting.title.hasPrefix("董事會議 ") &&
+            meeting.title.range(of: #"\d{4}/\d{2}/\d{2}"#, options: .regularExpression) != nil
+        if !meeting.title.isEmpty && !isDefaultDateTitle {
+            return meeting.title
+        }
+        if let summary = meeting.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !summary.isEmpty {
+            let line = summary
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first(where: { !$0.isEmpty && !$0.allSatisfy({ "-=#".contains($0) }) })
+                ?? summary
+            let cleaned = line
+                .replacingOccurrences(of: "#", with: "")
+                .replacingOccurrences(of: "**", with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: " -•*"))
+            if !cleaned.isEmpty { return String(cleaned.prefix(40)) }
+        }
+        if let firstUser = meeting.messages.first(where: { $0.role == .user }) {
+            let content = firstUser.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !content.isEmpty {
+                return String(content.prefix(40)) + (content.count > 40 ? "…" : "")
+            }
+        }
+        return meeting.title
     }
 }
