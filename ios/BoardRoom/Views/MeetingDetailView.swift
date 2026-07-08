@@ -5,6 +5,9 @@ struct MeetingDetailView: View {
     var onContinue: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
+    @State private var freshSummary: String?
+    @State private var isSummarizing = false
+
     var body: some View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
@@ -23,7 +26,7 @@ struct MeetingDetailView: View {
                             .font(.caption)
                             .foregroundColor(AppTheme.textMuted)
 
-                        Text("\(meeting.messages.count) 則訊息")
+                        Text("\(displayableMessages.count) 則訊息")
                             .font(.caption)
                             .foregroundColor(AppTheme.textSecondary)
                     }
@@ -49,30 +52,18 @@ struct MeetingDetailView: View {
                         .padding(.horizontal)
                     }
 
-                    // Summary
-                    if let summary = meeting.summary {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("會議摘要", systemImage: "doc.text")
-                                .font(.headline)
-                                .foregroundColor(AppTheme.gold)
-
-                            MarkdownTextView(content: summary)
-                                .textSelection(.enabled)
-                        }
-                        .padding()
-                        .background(AppTheme.cardBackground)
-                        .cornerRadius(12)
-                        .padding(.horizontal)
-                    }
-
-                    // Messages
+                    // Messages — with a fresh AI-generated summary at the top
+                    // replacing the boilerplate '會議開始…' welcome bubble.
                     VStack(alignment: .leading, spacing: 8) {
                         Label("對話記錄", systemImage: "bubble.left.and.bubble.right")
                             .font(.headline)
                             .foregroundColor(AppTheme.gold)
                             .padding(.horizontal)
 
-                        ForEach(meeting.messages) { message in
+                        summaryCard
+                            .padding(.horizontal)
+
+                        ForEach(displayableMessages) { message in
                             MessageBubbleView(message: message)
                         }
                     }
@@ -82,6 +73,71 @@ struct MeetingDetailView: View {
         }
         .navigationTitle("會議記錄")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await loadFreshSummary()
+        }
+    }
+
+    // MARK: - Summary card
+
+    @ViewBuilder
+    private var summaryCard: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.caption)
+                .foregroundColor(AppTheme.gold)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("對話重點")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundColor(AppTheme.gold)
+
+                if isSummarizing {
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.7)
+                        Text("整理對話重點中…")
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textMuted)
+                    }
+                } else if let summary = freshSummary, !summary.isEmpty {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                        .textSelection(.enabled)
+                } else {
+                    Text("本次對話尚無足夠內容可摘要。")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textMuted)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppTheme.secondaryBackground.opacity(0.55))
+        .cornerRadius(12)
+    }
+
+    private func loadFreshSummary() async {
+        // Skip if this meeting has literally nothing to summarize.
+        let nonSystem = meeting.messages.filter { $0.role != .system }
+        guard !nonSystem.isEmpty else { return }
+
+        isSummarizing = true
+        defer { isSummarizing = false }
+
+        freshSummary = await MeetingViewModel.summaryHelper.generateFreshSummary(for: meeting)
+    }
+
+    /// Messages minus the boilerplate '會議開始…' welcome system message,
+    /// so the fresh summary card takes its place at the top of the record.
+    private var displayableMessages: [MeetingMessage] {
+        meeting.messages.filter { msg in
+            if msg.role == .system && msg.content.hasPrefix("會議開始") {
+                return false
+            }
+            return true
+        }
     }
 
     /// Same smart-title logic as the sidebar drawer so both views agree.

@@ -3,6 +3,10 @@ import SwiftUI
 
 @MainActor
 class MeetingViewModel: ObservableObject {
+    /// Lightweight shared instance for views (like MeetingDetailView) that
+    /// only need to call summary/title helpers and don't own the meeting state.
+    static let summaryHelper = MeetingViewModel()
+
     @Published var currentMeeting: Meeting?
     @Published var inputText: String = ""
     @Published var isLoading: Bool = false
@@ -610,6 +614,48 @@ class MeetingViewModel: ObservableObject {
         currentMeeting?.title = title
         if let updated = currentMeeting {
             persistence.saveMeeting(updated)
+        }
+    }
+
+    /// Generate a fresh 2-3 sentence summary of the meeting, called every time
+    /// MeetingDetailView opens. Replaces the boilerplate '會議開始…' welcome
+    /// bubble with something that actually reminds the user what they discussed.
+    /// Made `nonisolated` accessible via the shared instance so a SwiftUI view
+    /// can await it without owning the view model.
+    func generateFreshSummary(for meeting: Meeting) async -> String? {
+        // Grab the last 20 non-system messages — plenty of context, still cheap.
+        let slice = meeting.messages.filter { $0.role != .system }.suffix(20)
+        let transcript = slice.compactMap { msg -> String? in
+            switch msg.role {
+            case .user:     return "用戶：\(msg.content)"
+            case .director: return "\(msg.directorName ?? "AI")：\(msg.content)"
+            case .system:   return nil
+            }
+        }.joined(separator: "\n")
+
+        guard !transcript.isEmpty else { return nil }
+
+        let systemPrompt = """
+        你是會議摘要員。讀完一段董事會對話後，用 2-3 句繁體中文濃縮這段對話的\
+        重點與結論。
+
+        嚴格規則：
+        - 直接講內容，開頭不要用「這場會議」「本次對話」「用戶詢問」等鋪陳
+        - 不要 markdown（不要 **粗體**、標題、列表）
+        - 用「你」稱呼用戶（不要用「用戶」「他」）
+        - 每一句話用句號結尾
+        - 總長度 80-140 個中文字
+        """
+
+        do {
+            let raw = try await apiService.sendAnalysisMessage(
+                userMessage: transcript,
+                systemPrompt: systemPrompt,
+                maxTokens: 200
+            )
+            return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            return nil
         }
     }
 
